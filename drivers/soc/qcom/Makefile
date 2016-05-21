@@ -111,3 +111,4 @@ obj-$(CONFIG_QCOM_SMCINVOKE) += smcinvoke.o
 obj-$(CONFIG_QCOM_EARLY_RANDOM)	+= early_random.o
 obj-$(CONFIG_QCOM_CX_IPEAK) += cx_ipeak.o
 obj-$(CONFIG_ONEPLUS_PROJECT_INFO) += project_info.o
+obj-$(CONFIG_STATE_NOTIFIER)		+= state_notifier.o
