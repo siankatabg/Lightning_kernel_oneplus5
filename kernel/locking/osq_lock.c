@@ -106,6 +106,7 @@ bool osq_lock(struct optimistic_spin_queue *lock)
 
 	prev = decode_cpu(old);
 	node->prev = prev;
+<<<<<<< HEAD
 
 	/*
 	 * We need to avoid reordering of link updation sequence of osq.

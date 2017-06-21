@@ -82,7 +82,6 @@ config PAGE_POISONING_NO_SANITY
 	   Skip the sanity checking on alloc, only fill the pages with
 	   poison on free. This reduces some of the overhead of the
 	   poisoning feature.
-
 	   If you are only interested in sanitization, say Y. Otherwise
 	   say N.
 

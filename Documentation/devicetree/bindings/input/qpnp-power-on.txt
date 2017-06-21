@@ -82,9 +82,14 @@ Optional properties:
 - qcom,shutdown-poweroff-type	Same description as qcom,warm-reset-poweroff-
 				type but this applies for the system shutdown
 				case.
+<<<<<<< HEAD
 - qcom,kpdpwr-sw-debounce	Boolean property to enable the debounce logic
 				on the KPDPWR_N rising edge.
 
+=======
+- qcom,kpd-dbc-enable Bool property to enable the debounce logic
+				on the KPDPWR_N rising edge.
+>>>>>>> 7a4f2d3... add for community
 
 All the below properties are in the sub-node section (properties of the child
 node).

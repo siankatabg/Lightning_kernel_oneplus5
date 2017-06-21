@@ -37,7 +37,6 @@ bool msm_vidc_bitrate_clock_scaling = true;
 bool msm_vidc_debug_timeout = false;
 
 #define MAX_DBG_BUF_SIZE 4096
-
 #define DYNAMIC_BUF_OWNER(__binfo) ({ \
 	atomic_read(&__binfo->ref_count) == 2 ? "video driver" : "firmware";\
 })
@@ -73,7 +72,6 @@ static ssize_t core_info_read(struct file *file, char __user *buf,
 	struct hal_fw_info fw_info = { {0} };
 	char *dbuf, *cur, *end;
 	int i = 0, rc = 0;
-	ssize_t len = 0;
 
 	if (!core || !core->device) {
 		dprintk(VIDC_ERR, "Invalid params, core: %pK\n", core);
@@ -115,11 +113,10 @@ err_fw_info:
 			completion_done(&core->completions[SYS_MSG_INDEX(i)]) ?
 			"pending" : "done");
 	}
-	len = simple_read_from_buffer(buf, count, ppos,
+	return simple_read_from_buffer(buf, count, ppos,
 			dbuf, cur - dbuf);
 
 	kfree(dbuf);
-	return len;
 }
 
 static const struct file_operations core_info_fops = {
@@ -173,9 +170,7 @@ static const struct file_operations ssr_fops = {
 struct dentry *msm_vidc_debugfs_init_drv(void)
 {
 	bool ok = false;
-	struct dentry *dir = NULL;
-
-	dir = debugfs_create_dir("msm_vidc", NULL);
+	struct dentry *dir = debugfs_create_dir("msm_vidc", NULL);
 	if (IS_ERR_OR_NULL(dir)) {
 		dir = NULL;
 		goto failed_create_dir;
@@ -244,7 +239,6 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		dprintk(VIDC_ERR, "Failed to create debugfs for msm_vidc\n");
 		goto failed_create_dir;
 	}
-
 	if (!debugfs_create_file("info", S_IRUGO, dir, core, &core_info_fops)) {
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
@@ -314,7 +308,6 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	struct msm_vidc_inst *inst, *temp = NULL;
 	char *dbuf, *cur, *end;
 	int i, j;
-	ssize_t len = 0;
 
 	if (!idata || !idata->core || !idata->inst) {
 		dprintk(VIDC_ERR, "%s: Invalid params\n", __func__);
@@ -412,13 +405,12 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	cur += write_str(cur, end - cur, "FBD Count: %d\n", inst->count.fbd);
 
 	publish_unreleased_reference(inst, &cur, end);
-	len = simple_read_from_buffer(buf, count, ppos,
+	return simple_read_from_buffer(buf, count, ppos,
 		dbuf, cur - dbuf);
 
 	kfree(dbuf);
 failed_alloc:
 	kref_put(&inst->kref, put_inst_helper);
-	return len;
 }
 
 static int inst_info_release(struct inode *inode, struct file *file)
