@@ -17,6 +17,7 @@
 #include <linux/pm_wakeirq.h>
 #include <linux/types.h>
 #include <linux/moduleparam.h>
+#include <linux/display_state.h>
 #include <trace/events/power.h>
 #include <linux/pm_wakeup.h>
 
@@ -938,6 +939,10 @@ void pm_print_active_wakeup_sources(void)
 	struct wakeup_source *ws;
 	int srcuidx, active = 0;
 	struct wakeup_source *last_activity_ws = NULL;
+
+	// kinda pointless to force this routine during screen on
+	if (is_display_on())
+		return;
 
 	srcuidx = srcu_read_lock(&wakeup_srcu);
 	list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
