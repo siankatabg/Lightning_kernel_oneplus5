@@ -302,7 +302,7 @@ struct qpnp_hap {
 	enum qpnp_hap_high_z		lra_high_z;
 	u32				timeout_ms;
 	u32				vmax_mv;
-	u32				vmax_default_mv;
+	u32				vmax_percent;
 	u32				ilim_ma;
 	u32				sc_deb_cycles;
 	u32				int_pwm_freq_khz;
@@ -336,18 +336,14 @@ struct qpnp_hap {
 	bool				sup_brake_pat;
 	bool				correct_lra_drive_freq;
 	bool				misc_trim_error_rc19p2_clk_reg_present;
-#ifdef CONFIG_VENDOR_ONEPLUS /*wulaibin 2016-12-13 add for show vibrator resonant frequency*/
 	int                 resonant_frequency;
 	int                 enable_time;
-#endif
 };
 
 static struct qpnp_hap *ghap;
 /*wulaibin  2015-11-18 add begin for optimizing the response speed of the
 vibrator*/
-#ifdef CONFIG_VENDOR_ONEPLUS
 static struct workqueue_struct *vibqueue;
-#endif //CONFIG_VENDOR_ONEPLUS
 /*wulaibin  2015-11-18 add end for optimizing the response speed of the
 vibrator*/
 
@@ -1025,7 +1021,6 @@ static ssize_t qpnp_hap_wf_s7_store(struct device *dev,
 	return qpnp_hap_wf_samp_store(dev, buf, count, 7);
 }
 
-#ifdef CONFIG_VENDOR_ONEPLUS /*wulaibin 2016-12-13 add for show vibrator resonant frequency*/
 static ssize_t qpnp_hap_rf_hz_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -1055,10 +1050,10 @@ static ssize_t qpnp_hap_rf_hz_store(struct device *dev,
 static ssize_t qpnp_hap_vmax_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-    u8 reg = 0;
-    int rc;
-    struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
-    struct qpnp_hap *hap = container_of(timed_dev, struct qpnp_hap,
+	u8 reg = 0;
+	int rc;
+	struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
+	struct qpnp_hap *hap = container_of(timed_dev, struct qpnp_hap,
 					 timed_dev);
 	rc = qpnp_hap_read_reg(hap, &reg, QPNP_HAP_VMAX_REG(hap->base));
 	reg = (reg >> QPNP_HAP_VMAX_SHIFT);
@@ -1084,9 +1079,11 @@ static ssize_t qpnp_hap_vmax_store(struct device *dev,
 	else if (data > QPNP_HAP_VMAX_MAX_MV)
 		data = QPNP_HAP_VMAX_MAX_MV;
 
-    rc = qpnp_hap_read_reg(hap, &reg, QPNP_HAP_VMAX_REG(hap->base));
-    if(rc < 0)
-        return rc;
+	data = (data * hap->vmax_percent) / 100;
+
+	rc = qpnp_hap_read_reg(hap, &reg, QPNP_HAP_VMAX_REG(hap->base));
+	if(rc < 0)
+		return rc;
 
 	reg &= QPNP_HAP_VMAX_MASK;
 	temp = data / QPNP_HAP_VMAX_MIN_MV;
@@ -1097,32 +1094,45 @@ static ssize_t qpnp_hap_vmax_store(struct device *dev,
 	if (rc)
 		return rc;
 
-    hap->vmax_mv = data;
+	hap->vmax_mv = data;
 
-    return count;
+	return count;
 }
-#endif /*CONFIG_VENDOR_ONEPLUS*/
 
-static ssize_t qpnp_hap_vmax_default(struct device *dev,
+static ssize_t qpnp_hap_vmax_mv_strong_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
+	int temp;
 	struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
 	struct qpnp_hap *hap = container_of(timed_dev, struct qpnp_hap,
 					 timed_dev);
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", hap->vmax_default_mv);
+	temp = ((QPNP_HAP_VMAX_MAX_MV - QPNP_HAP_VMAX_MIN_MV) *
+		hap->vmax_percent) / 100 + QPNP_HAP_VMAX_MIN_MV;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", temp);
 }
 
-static ssize_t qpnp_hap_vmax_max(struct device *dev,
-		struct device_attribute *attr, char *buf)
+static ssize_t qpnp_hap_vmax_mv_strong_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
 {
-	return snprintf(buf, PAGE_SIZE, "%d\n", QPNP_HAP_VMAX_MAX_MV);
-}
+	int data;
+	struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
+	struct qpnp_hap *hap = container_of(timed_dev, struct qpnp_hap,
+					 timed_dev);
 
-static ssize_t qpnp_hap_vmax_min(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	return snprintf(buf, PAGE_SIZE, "%d\n", QPNP_HAP_VMAX_MIN_MV);
+	if (sscanf(buf, "%d", &data) != 1)
+		return -EINVAL;
+
+	if (data < QPNP_HAP_VMAX_MIN_MV)
+		data = QPNP_HAP_VMAX_MIN_MV;
+	else if (data > QPNP_HAP_VMAX_MAX_MV)
+		data = QPNP_HAP_VMAX_MAX_MV;
+
+	hap->vmax_percent = 100 * (data - QPNP_HAP_VMAX_MIN_MV) /
+		(QPNP_HAP_VMAX_MAX_MV - QPNP_HAP_VMAX_MIN_MV);
+
+	return count;
 }
 
 /* sysfs show for wave form update */
@@ -1432,15 +1442,15 @@ static ssize_t qpnp_hap_ramp_test_data_show(struct device *dev,
 
 /* sysfs attributes */
 static struct device_attribute qpnp_hap_attrs[] = {
-#ifdef CONFIG_VENDOR_ONEPLUS /*wulaibin 2016-12-13 add for show vibrator resonant frequency*/
 	__ATTR(rf_hz, (S_IRUGO | S_IWUSR | S_IWGRP),
 			qpnp_hap_rf_hz_show,
 			qpnp_hap_rf_hz_store),
-	__ATTR(vtg_level, (S_IRUGO | S_IWUSR), qpnp_hap_vmax_show, qpnp_hap_vmax_store),
-	__ATTR(vtg_default, S_IRUGO, qpnp_hap_vmax_default, NULL),
-	__ATTR(vtg_max, S_IRUGO, qpnp_hap_vmax_max, NULL),
-	__ATTR(vtg_min, S_IRUGO, qpnp_hap_vmax_min, NULL),
-#endif /*CONFIG_VENDOR_ONEPLUS*/
+	__ATTR(vmax, (S_IRUGO | S_IWUSR | S_IWGRP),
+			qpnp_hap_vmax_show,
+			qpnp_hap_vmax_store),
+	__ATTR(vmax_mv_strong, (S_IRUGO | S_IWUSR | S_IWGRP),
+			qpnp_hap_vmax_mv_strong_show,
+			qpnp_hap_vmax_mv_strong_store),
 	__ATTR(wf_s0, 0664, qpnp_hap_wf_s0_show, qpnp_hap_wf_s0_store),
 	__ATTR(wf_s1, 0664, qpnp_hap_wf_s1_show, qpnp_hap_wf_s1_store),
 	__ATTR(wf_s2, 0664, qpnp_hap_wf_s2_show, qpnp_hap_wf_s2_store),
@@ -1711,21 +1721,27 @@ static void qpnp_hap_td_enable(struct timed_output_dev *dev, int value)
 	} else {
 		value = (value > hap->timeout_ms ?
 				 hap->timeout_ms : value);
+
+		if (hap->vmax_mv == QPNP_HAP_VMAX_MIN_MV) {
+			mutex_unlock(&hap->lock);
+			return;
+		}
+
 		//if value < 11ms,use overdrive
 		qpnp_hap_wf_samp_store_all(dev, (value<11?1:0));
 		hap->state = 1;
 		hap->enable_time = value;
 	}
-	#ifndef CONFIG_VENDOR_ONEPLUS
-	mutex_unlock(&hap->lock);
-	schedule_work(&hap->work);
-	#else //#ifdef CONFIG_VENDOR_ONEPLUS
 	queue_work(vibqueue,&hap->work);
 	msleep(1);
 	mutex_unlock(&hap->lock);
-	#endif //CONFIG_VENDOR_ONEPLUS
 	/* shankai 2015-07-7 modify end for optimizing the response speed of the vibrator*/
 	//schedule_work(&hap->work); wulaibin remove it 2017-02-22 for vibrete time nonuniform
+}
+
+void set_vibrate(int value)
+{
+	qpnp_hap_td_enable(&ghap->timed_dev, value);
 }
 
 /* play pwm bytes */
@@ -2246,15 +2262,15 @@ static int qpnp_hap_parse_dt(struct qpnp_hap *hap)
 	}
 
 	hap->vmax_mv = QPNP_HAP_VMAX_MAX_MV;
-	hap->vmax_default_mv = QPNP_HAP_VMAX_MAX_MV;
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,vmax-mv", &temp);
 	if (!rc) {
 		hap->vmax_mv = temp;
-		hap->vmax_default_mv = temp;
 	} else if (rc != -EINVAL) {
 		dev_err(&pdev->dev, "Unable to read vmax\n");
 		return rc;
 	}
+
+	hap->vmax_percent = 100;
 
 	hap->ilim_ma = QPNP_HAP_ILIM_MIN_MV;
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,ilim-ma", &temp);
@@ -2398,9 +2414,7 @@ static int qpnp_haptic_probe(struct platform_device *pdev)
 	mutex_init(&hap->lock);
 	mutex_init(&hap->wf_lock);
 
-        #ifdef CONFIG_VENDOR_ONEPLUS
 	vibqueue = create_singlethread_workqueue("vibthread");
-	#endif //CONFIG_VENDOR_ONEPLUS
 
 	INIT_WORK(&hap->work, qpnp_hap_worker);
 	INIT_DELAYED_WORK(&hap->sc_work, qpnp_handle_sc_irq);
